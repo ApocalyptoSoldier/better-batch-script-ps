@@ -45,6 +45,22 @@ foreach ($line in $lines)
 	$line = $line.Trim()
 	$words = $line -split '\s+' | Select -Skip 1
 
+	if ($line.StartsWith('/*'))
+	{
+		$reading = "multiline comment"
+		continue;
+	}
+	if ($reading -eq "multiline comment")
+	{
+		if ($line.StartsWith('*/')) {
+			$reading = "none"
+			continue;
+		}
+		else {
+			$line = "// $line"
+		}
+	}
+
 	if ($line.StartsWith("echo"))
 	{
 		if (($words.Length -eq 1) -and ($words[0] -in @('off', 'on')))

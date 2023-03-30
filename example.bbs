@@ -1,6 +1,10 @@
 s0
 title Hello World!
 echo Hello World
+/*
+echo this is inside a multiline comment
+echo it will not be executed
+*/
 echo off
 fn test {
     echo test
