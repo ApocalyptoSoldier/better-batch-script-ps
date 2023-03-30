@@ -5,8 +5,16 @@ echo off
 fn test {
     echo test
 }
+
+fn showtext arg1, arg2 {
+    echo Arg 1: %arg1%;
+    echo Arg 2: %arg2%;
+}
+
 loop 10 {
     echo looped $loop times
 }
 echo Running test
 fnrun test
+echo Running showtext
+fnrun showtext "Hello World" "Argument 2"

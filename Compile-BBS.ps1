@@ -37,10 +37,13 @@ $reading = "none";
 $newlineChar = "`n";
 $functionList = "exit /b 1101";
 
+$lineNum = 0
+
 foreach ($line in $lines)
 {
+	$lineNum += 1
 	$line = $line.Trim()
-	$words = $line -split ' ' | Select -Skip 1
+	$words = $line -split '\s+' | Select -Skip 1
 
 	if ($line.StartsWith("echo"))
 	{
@@ -54,17 +57,40 @@ foreach ($line in $lines)
 	elseif 	($line.StartsWith("s1"))	{ $line = "@echo on"	}
 	
 	if ($line.startsWith("fn ")) {
-		if ($reading -eq "function") { throw "Compiler Error!" };
-		if ($words.Length -eq 2) {
-			# Function without arguments.
-			# Check if syntax is gud
-			if ($words[1] -ne "{") { throw "Compiler Error!" } 
-			else {
-				$reading = "function";
+		if ($reading -eq "function") { throw "Compiler error on line $lineNum`: Nested functions aren't supported" };
+		if ($words.Length -ge 2)
+		{
+			if ($words[-1] -ne "{") { throw "Compiler error on line $lineNum`: Missing opening bracket in function declaration" }
+			
+			$reading = "function"
+			$line = "//skipline"
+			
+			# Function without arguments
+			if ($words.Length -eq 2) {
 				$functionList += "`n:BBSFN_" + $words[0] + "`n";
-				$line = "//skipline";
 			}
-		} else { $line = "rem BBS: Not Supported Yet!"; }
+			# Function with arguments
+			else {
+				$functionDeclarationLine = "`n:BBSFN_" + $words[0]
+				$functionVariables = ''
+							
+				$functionArgs = $words | Select -Skip 1 -First ($words.Length - 2)
+				[int]$argNum = 0
+				
+				# Add each argument to the function declaration and create a line that sets the argument to it's actual variable name
+				# since arguments can only be accessed by their position eg. %~1
+				foreach ($functionArg in $functionArgs) {
+					$argNum += 1
+					$argName = $functionArg -replace ',\s*', '' # Remove the comma separator
+					$functionDeclarationLine += " $argName"
+					$functionVariables += "set `"$argName=%~$argNum`"$newlineChar"
+				}
+				
+				$functionList += "$functionDeclarationLine$newlineChar"
+				$functionList += $functionVariables
+			}
+		}
+		else { throw "Compiler error on line $lineNum" }
 	}
 	
 	if ($line -eq "}") {
@@ -77,17 +103,17 @@ foreach ($line in $lines)
 			$line = ")";
 			$reading = "none";
 		} 
-		else { throw "Compiler Error!" }
+		else { throw "Compiler error on line $lineNum`: Unmatched closing bracket" }
 	}
 	
 	if ($line.startsWith("fnrun ")) { $line = "call :BBSFN_" + ($words -join " ") }
 	
 	if ($line.startsWith("loop ")) {
-		if ($reading -eq "loop") { throw "Compiler Error!" }
+		if ($reading -eq "loop") { throw "Compiler error on line $lineNum`: Nested loops not yet supported" }
 		if ($words.length -eq 2) {
 			# Function without arguments.
 			# Check if syntax is gud
-			if ($words[1] -ne "{") { throw "Compiler Error!" } 
+			if ($words[1] -ne "{") { throw "Compiler error on line $lineNum`: Missing opening bracket in loop declaration" } 
 			else {
 				$reading = "loop";
 				$line = "for /l %%p in (0,1," + ([int]::Parse($words[0]) - 1) + ") do (";
@@ -103,7 +129,6 @@ foreach ($line in $lines)
 	if ($line.StartsWith("//")) {
 		if ($line -eq '//skipline') { continue; }
 		$line = ($line -replace '^//\s{0,1}', 'REM ')
-		# continue;
 	}
 	elseif ($reading -eq "function") {
 		$functionList += "$line$newlineChar"
